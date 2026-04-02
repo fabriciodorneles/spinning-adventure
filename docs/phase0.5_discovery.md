@@ -48,6 +48,51 @@ npm install -D @types/three
 
 ---
 
+## Estratégia de gráficos e assets
+
+### R3F: construção procedural, sem precisar de assets
+
+A grande vantagem do React Three Fiber (Three.js) nesse contexto é que **quase tudo pode ser construído via código**, sem precisar de arquivos de imagem, modelos 3D ou sprites desenhados:
+
+- **Pista** — um `<PlaneGeometry>` com `<MeshStandardMaterial>` e uma textura gerada via shader (linhas de perspectiva, asfalto). Zero arquivos externos.
+- **Rider** — pode ser uma composição de primitivas geométricas (`<CylinderGeometry>` para o corpo, `<SphereGeometry>` para a cabeça, `<TorusGeometry>` para as rodas). Simples, estilizado, sem necessidade de modelagem.
+- **Cenário** — árvores como cones + cilindros, prédios como boxes, marcos de milestone como arcos feitos de `<TubeGeometry>`. Tudo primitivas.
+- **Efeitos** — partículas, motion blur, bloom via `@react-three/postprocessing`. Código puro.
+- **Iluminação** — `<ambientLight>`, `<directionalLight>`, sombras — configura o mood da cena inteiro sem assets.
+
+**Conclusão:** para chegar no estilo Road Fighter e até num runner 3D estilizado (não realista), R3F não exige nenhum asset externo. O look fica geométrico/minimalista — o que funciona bem para um app de treino.
+
+---
+
+### Quando assets se tornam necessários
+
+Assets (sprites, modelos `.glb`, texturas `.png`) são necessários quando:
+- Você quer um ciclista **reconhecível e animado** (pedalando de verdade)
+- Você quer um cenário **realista** (asfalto com textura real, árvores detalhadas)
+- Você quer um estilo **pixel art** como o Road Fighter original (requer sprites 2D desenhados)
+
+### Estratégia de assets sem ser designer
+
+Se chegar nesse ponto, existem boas opções:
+
+| Fonte | O que tem | Custo |
+|-------|-----------|-------|
+| **Sketchfab** | Modelos 3D `.glb` prontos (ciclistas, cenários) | Grátis / pago |
+| **Kenney.nl** | Assets 2D e 3D de qualidade, licença CC0 (uso livre) | Grátis |
+| **Mixamo (Adobe)** | Personagens 3D com animações prontas (.fbx) | Grátis com conta Adobe |
+| **IA (Meshy, Tripo3D)** | Gerar modelo 3D a partir de texto ou imagem | Freemium |
+| **IA (Midjourney/DALL-E)** | Gerar texturas e sprites 2D | Pago |
+
+**Recomendação prática:** começar com geometria procedural (sem assets) e, quando a experiência estiver boa em termos de gameplay/feedback, adicionar um modelo `.glb` do Sketchfab ou Kenney para o ciclista. Three.js/R3F carrega `.glb` com uma linha via `useGLTF` do drei.
+
+---
+
+### PixiJS exigiria assets desde o início?
+
+Sim — PixiJS é um renderer 2D baseado em sprites. Para ter algo visual além de retângulos e círculos, você precisa de imagens (spritesheet do ciclista, textura da pista, etc.). Para o estilo Road Fighter original isso faz sentido, mas cria uma dependência de assets desde o dia 1. R3F permite adiar essa decisão.
+
+---
+
 ## Roadmap da Fase 0.5
 
 ### Etapa 1 — Setup R3F
