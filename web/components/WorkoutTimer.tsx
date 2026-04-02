@@ -22,10 +22,7 @@ export function WorkoutTimer({ startedAt, active }: WorkoutTimerProps) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    if (!active || !startedAt) {
-      setElapsed(0);
-      return;
-    }
+    if (!active || !startedAt) return;
 
     const tick = () => {
       setElapsed(Math.floor((Date.now() - startedAt) / 1000));
@@ -35,11 +32,13 @@ export function WorkoutTimer({ startedAt, active }: WorkoutTimerProps) {
     return () => clearInterval(id);
   }, [active, startedAt]);
 
+  const display = active && startedAt ? elapsed : 0;
+
   return (
     <div className="flex flex-col items-center">
       <span className="text-gray-400 text-sm uppercase tracking-widest">Tempo</span>
       <span className="font-mono text-5xl font-bold text-white tabular-nums">
-        {formatDuration(elapsed)}
+        {formatDuration(display)}
       </span>
     </div>
   );

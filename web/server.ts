@@ -44,56 +44,68 @@ const workout: WorkoutState = {
   samples: [],
 };
 
+// Referência module-scope ao WS do bridge (permite forwarding de sim:cmd)
+let bridgeWs: WebSocket | null = null;
+// Flag: true quando o bridge conectado é o simulador
+let isSimMode = false;
+
 // ---------- Conexão com o bridge Python ----------
 function connectToBridge(io: SocketIOServer) {
-  let ws: WebSocket | null = null;
-
   function connect() {
     console.log("[bridge] Conectando ao Python bridge em", BRIDGE_URL);
-    ws = new WebSocket(BRIDGE_URL);
+    bridgeWs = new WebSocket(BRIDGE_URL);
 
-    ws.on("open", () => {
+    bridgeWs.on("open", () => {
       console.log("[bridge] Conectado ao Python bridge.");
     });
 
-    ws.on("message", (raw: WebSocket.RawData) => {
+    bridgeWs.on("message", (raw: WebSocket.RawData) => {
       try {
         const data = JSON.parse(raw.toString());
 
+        // Detecção de modo simulador: remove _sim antes de repassar ao React
+        const { _sim, ...cleanData } = data;
+        if (_sim === true && !isSimMode) {
+          isSimMode = true;
+          io.emit("sim:mode", true);
+        }
+
         // Acumula amostra se treino estiver ativo
         if (workout.active) {
-          workout.samples.push({ timestamp: Date.now(), ...data });
+          workout.samples.push({ timestamp: Date.now(), ...cleanData });
 
           // Calcula médias em tempo real e injeta nos dados
           const avgSpeed = runningAvg(workout.samples, "instant_speed");
           const avgPower = runningAvg(workout.samples, "instant_power");
-          if (avgSpeed !== null) data.running_avg_speed = avgSpeed;
-          if (avgPower !== null) data.running_avg_power = avgPower;
+          if (avgSpeed !== null) cleanData.running_avg_speed = avgSpeed;
+          if (avgPower !== null) cleanData.running_avg_power = avgPower;
 
           // Trabalho acumulado: potência média × segundos decorridos
           if (avgPower !== null && workout.startedAt !== null) {
             const elapsedSec = (Date.now() - workout.startedAt) / 1000;
-            data.running_work_j = avgPower * elapsedSec;
+            cleanData.running_work_j = avgPower * elapsedSec;
           }
         }
 
         // Repassa para todos os clientes React conectados
-        io.emit("bike:data", data);
+        io.emit("bike:data", cleanData);
       } catch {
         // ignora payloads malformados
       }
     });
 
-    ws.on("close", () => {
+    bridgeWs.on("close", () => {
       console.log(
         `[bridge] Conexão perdida. Reconectando em ${BRIDGE_RECONNECT_MS / 1000}s...`
       );
+      isSimMode = false;
+      io.emit("sim:mode", false);
       setTimeout(connect, BRIDGE_RECONNECT_MS);
     });
 
-    ws.on("error", (err: Error) => {
+    bridgeWs.on("error", (err: Error) => {
       console.error("[bridge] Erro WebSocket:", err.message);
-      ws?.terminate();
+      bridgeWs?.terminate();
     });
   }
 
@@ -105,11 +117,12 @@ function registerSocketEvents(io: SocketIOServer) {
   io.on("connection", (socket) => {
     console.log("[socket.io] Cliente conectado:", socket.id);
 
-    // Envia estado atual do treino ao conectar
+    // Envia estado atual ao conectar
     socket.emit("workout:state", {
       active: workout.active,
       startedAt: workout.startedAt,
     });
+    socket.emit("sim:mode", isSimMode);
 
     socket.on("workout:start", () => {
       if (workout.active) return;
@@ -145,6 +158,11 @@ function registerSocketEvents(io: SocketIOServer) {
       // Reset
       workout.startedAt = null;
       workout.samples = [];
+    });
+
+    // Encaminha comandos do simulador ao bridge Python
+    socket.on("sim:cmd", (cmd: string) => {
+      if (bridgeWs?.readyState === WebSocket.OPEN) bridgeWs.send(cmd);
     });
 
     socket.on("disconnect", () => {
