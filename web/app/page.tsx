@@ -3,9 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { MetricCard } from "@/components/MetricCard";
 import { WorkoutTimer } from "@/components/WorkoutTimer";
-import { TrackGame } from "@/components/TrackGame";
+
+const TrackGame3D = dynamic(() => import("@/components/TrackGame3D"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[400px] bg-gray-900 rounded-2xl flex items-center justify-center">
+      <span className="text-gray-600 text-sm">Carregando pista...</span>
+    </div>
+  ),
+});
 
 interface BikeData {
   instant_speed?: number;
@@ -186,8 +195,12 @@ export default function Dashboard() {
         </div>
 
         {/* ── Coluna direita — jogo ── */}
-        <div className="flex flex-col gap-4">
-          <TrackGame workJ={bikeData.running_work_j} active={workoutActive} />
+        <div className="flex flex-col gap-4 min-h-[440px]">
+          <TrackGame3D
+            workJ={bikeData.running_work_j}
+            active={workoutActive}
+            instantPower={bikeData.instant_power}
+          />
         </div>
 
       </div>
